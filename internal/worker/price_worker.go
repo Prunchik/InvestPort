@@ -26,15 +26,16 @@ func (w *PriceWorker) Start(ctx context.Context) {
 			items, err := w.itemService.GetItemsForProcessing()
 			if err != nil {
 				log.Printf("failed to get items: %v\n", err)
-				time.Sleep(5 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 			for i, _ := range items {
 				err = w.PriceService.UpdatePriceForItem(&items[i])
 				if err != nil {
 					log.Printf("failed to update price: %v\n", err)
+					time.Sleep(5 * time.Second)
 				}
-				time.Sleep(2 * time.Second)
+				time.Sleep(4 * time.Second)
 			}
 
 		}

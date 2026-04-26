@@ -3,23 +3,23 @@ package main
 import (
 	"context"
 	"investPort/db"
+	"investPort/internal/api"
+	"investPort/internal/bootstrap"
 	"investPort/internal/repository"
 	"investPort/internal/service"
 	"investPort/internal/steam"
 	"investPort/internal/worker"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	var items []string
-	items = append(items,
-		"https://steamcommunity.com/market/listings/730/Sealed%20Dead%20Hand%20Terminal",
-		"https://steamcommunity.com/market/listings/730/Dreams%20%26%20Nightmares%20Case",
-		"https://steamcommunity.com/market/listings/730/Fever%20Case",
-	)
+	//router
+	router := chi.NewRouter()
 	// database
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -40,15 +40,25 @@ func main() {
 	itemService := service.NewItemService(itemRepo)
 	priceService := service.NewPriceHistoryService(priceRepo, client)
 
-	for i, _ := range items {
-		_, err = itemService.GetOrCreateByURL(items[i])
-		if err != nil {
-			panic(err)
-		}
-	}
+	//Items
+	bootstrap.SeedItems(itemService)
+
 	//worker
 	priceWorker := worker.NewPriceWorker(itemService, priceService)
-
 	//start
-	priceWorker.Start(context.Background())
+	go priceWorker.Start(context.Background())
+	//api
+	api.NewApi(router, itemService, priceService)
+	//server
+
+	server := http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+	defer server.Close()
+	err = server.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
+
 }

@@ -57,3 +57,10 @@ func (s *ItemService) GetItemsForProcessing() ([]model.Item, error) {
 
 	return items, nil
 }
+func (s *ItemService) GetAllItems() ([]model.Item, error) {
+	items, err := s.repo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return items, err
+}

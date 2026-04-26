@@ -56,3 +56,10 @@ func (s *PriceHistoryService) ProcessPrice(itemID uint, newPrice float64) (*mode
 	}
 	return price, nil
 }
+func (s *PriceHistoryService) GetHistoryById(id uint) ([]model.PriceHistory, error) {
+	item, err := s.repo.GetHistory(id)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
