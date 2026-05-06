@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func (api *Api) getAllItems() http.HandlerFunc {
 			http.Error(w, "failed to get items", http.StatusInternalServerError)
 			return
 		}
-		itemsStruct := allItemsResponse{
+		itemsStruct := AllItemsResponse{
 			Items: make([]itemResponse, len(items)),
 		}
 		for i, item := range items {
@@ -85,13 +86,12 @@ func (api *Api) getItemById() http.HandlerFunc {
 }
 func (api *Api) getHistoryById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		idStr := chi.URLParam(r, "id")
 		if idStr == "" {
-			if idStr == "" {
-				log.Println("empty id url param")
-				http.Error(w, "missing id", http.StatusBadRequest)
-				return
-			}
+			log.Println("empty id url param")
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
 		}
 		id, err := strconv.ParseUint(idStr, 10, 64)
 		if err != nil {
@@ -99,23 +99,42 @@ func (api *Api) getHistoryById() http.HandlerFunc {
 			http.Error(w, "invalid id param", http.StatusBadRequest)
 			return
 		}
-		prices, err := api.PriceService.GetHistoryById(uint(id))
+
+		interval := r.URL.Query().Get("interval")
+		mode := r.URL.Query().Get("mode")
+		limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				log.Printf("price not found %d: %v\n", id, err)
-				http.Error(w, "price not found", http.StatusNotFound)
-				return
-			}
+			log.Printf("failed to parse limit %d : %v", limit, err)
+			http.Error(w, "failed to get price", http.StatusInternalServerError)
+			return
+		}
+
+		prices, err := api.PriceService.GetHistoryByInterval(uint(id), limit, interval, mode)
+		if err != nil {
 			log.Printf("failed to get price by id %d: %v\n", id, err)
 			http.Error(w, "failed to get price", http.StatusInternalServerError)
 			return
 		}
+		if len(prices) > 0 {
+			emptyResponse := PricesResponse{
+				ItemId: uint(id),
+				Prices: []priceResponse{},
+			}
+			err = api.encoder(w, emptyResponse)
+			if err != nil {
+				log.Printf("error encoding price to json: %v", err)
+				http.Error(w, "failed to encode response", http.StatusInternalServerError)
+				return
+			}
+		}
 		pricesHistory := PricesResponse{
+			ItemId: uint(id),
 			Prices: make([]priceResponse, len(prices)),
 		}
 		for i, price := range prices {
 			pricesHistory.Prices[i] = priceResponse{
-				ItemId: price.ItemID, Price: price.Price, InspectionTime: price.InspectionTime,
+				Price: price.Price,
+				Time:  price.Bucket.Format(time.RFC3339),
 			}
 		}
 		err = api.encoder(w, pricesHistory)

@@ -16,3 +16,8 @@ func NewPriceHistory(itemID uint, price float64) *PriceHistory {
 		InspectionTime: time.Now(),
 	}
 }
+
+type PriceByInterval struct {
+	Price  float64   `json:"price"`
+	Bucket time.Time `json:"bucket"`
+}

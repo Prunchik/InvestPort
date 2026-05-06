@@ -1,8 +1,6 @@
 package api
 
-import "time"
-
-type allItemsResponse struct {
+type AllItemsResponse struct {
 	Items []itemResponse `json:"items"`
 }
 type itemResponse struct {
@@ -12,10 +10,10 @@ type itemResponse struct {
 }
 
 type PricesResponse struct {
+	ItemId uint            `json:"item_id"`
 	Prices []priceResponse `json:"prices"`
 }
 type priceResponse struct {
-	ItemId         uint      `json:"item_id"`
-	Price          float64   `json:"price"`
-	InspectionTime time.Time `json:"inspection_time"`
+	Price float64 `json:"price"`
+	Time  string  `json:"time"`
 }

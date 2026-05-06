@@ -16,6 +16,12 @@ type PriceHistoryService struct {
 	client *steam.Client
 }
 
+const (
+	GroupByHours = "hour"
+	GroupByDay   = "day"
+	GroupByWeek  = "week"
+)
+
 func NewPriceHistoryService(r *repository.PriceHistoryRepository, c *steam.Client) *PriceHistoryService {
 	return &PriceHistoryService{
 		repo:   r,
@@ -56,8 +62,21 @@ func (s *PriceHistoryService) ProcessPrice(itemID uint, newPrice float64) (*mode
 	}
 	return price, nil
 }
-func (s *PriceHistoryService) GetHistoryById(id uint) ([]model.PriceHistory, error) {
-	item, err := s.repo.GetHistory(id)
+func (s *PriceHistoryService) GetHistoryByInterval(id uint, limit int, interval, mode string) ([]model.PriceByInterval, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	validInterval := "hour"
+	switch interval {
+	case GroupByHours, GroupByDay, GroupByWeek:
+		validInterval = interval
+	}
+	validMode := "last"
+	switch mode {
+	case "avg", "last":
+		validMode = mode
+	}
+	item, err := s.repo.GetPriceByPeriod(id, limit, validInterval, validMode)
 	if err != nil {
 		return nil, err
 	}
