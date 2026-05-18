@@ -20,7 +20,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog/v3"
 	"github.com/joho/godotenv"
-	stats "github.com/lufia/plan9stats"
 )
 
 func main() {

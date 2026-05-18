@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"investPort/internal/service"
 	"investPort/internal/steam"
 	"log/slog"
@@ -34,15 +35,16 @@ func NewAPI(router chi.Router, itemService *service.ItemService, priceService *s
 	router.Get("/items/{id}/history", api.getHistoryById())
 	return api
 }
+
 func (api *API) getItems() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		logger := api.logger.With(
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
-		query, err := api.parsePaginationQuery(r)
+		query, err := parsePaginationQuery(r)
 		if err != nil {
-			logger.Warn("invalid pagination query",
+			logger.Warn("failed parse pagination query",
 				slog.String("error", err.Error()))
 			api.writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -77,6 +79,7 @@ func (api *API) getItems() http.HandlerFunc {
 		}
 	}
 }
+
 func (api *API) getItemById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -149,7 +152,7 @@ func (api *API) getHistoryById() http.HandlerFunc {
 			return
 		}
 
-		query, err := api.parseHistoryQuery(r)
+		query, err := parseHistoryQuery(r)
 
 		if err != nil {
 			logger.Warn("invalid history query",
@@ -269,12 +272,7 @@ func (api *API) addNewItemByURL() http.HandlerFunc {
 	}
 }
 
-func (api *API) parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
-
-	logger := api.logger.With(
-		slog.String("request_id", middleware.GetReqID(r.Context())),
-	)
-
+func parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
 	query := &HistoryQuery{}
 
 	interval := r.URL.Query().Get("interval")
@@ -292,12 +290,6 @@ func (api *API) parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
 	switch interval {
 	case GroupByHours, GroupByDay, GroupByWeek:
 		validInterval = interval
-		logger.Debug("using custom interval",
-			slog.String("interval", validInterval))
-	default:
-		logger.Debug("invalid interval, using default",
-			slog.String("provided", interval),
-			slog.String("default", validInterval))
 	}
 	query.Interval = validInterval
 
@@ -305,16 +297,10 @@ func (api *API) parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
 	switch mode {
 	case ModeAVG, ModeLast:
 		validMode = mode
-		logger.Debug("using custom mode",
-			slog.String("mode", validMode))
-	default:
-		logger.Debug("invalid mode, using default",
-			slog.String("provided", mode),
-			slog.String("default", validMode))
 	}
 	query.Mode = validMode
 
-	paginationQuery, err := api.parsePaginationQuery(r)
+	paginationQuery, err := parsePaginationQuery(r)
 	if err != nil {
 		return nil, err
 	}
@@ -324,70 +310,46 @@ func (api *API) parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
 	return query, nil
 }
 
-func (api *API) parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
-	logger := api.logger.With(
-		slog.String("request_id", middleware.GetReqID(r.Context())),
-	)
-
-	const (
-		defaultLimit  = 20
-		defaultOffset = 0
-	)
+func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
+	var offset, limit int
+	var err error
 
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
 
-	query := &PaginationQuery{}
-
-	var offset, limit int
-	var err error
-
 	if offsetStr == "" {
-		offset = defaultOffset
-		logger.Debug("using default offset")
-		slog.Int("offset", defaultOffset)
+		offset = 0
 	} else {
 		offset, err = strconv.Atoi(offsetStr)
 		if err != nil {
-			logger.Warn("failed to parse offset",
-				slog.String("offset", offsetStr),
-				slog.String("error", err.Error()))
-			return nil, errors.New("invalid offset")
+			return nil, fmt.Errorf("invalid offset")
 		}
 		if offset < 0 {
-			limit = defaultOffset
-			logger.Debug("using default offset",
-				slog.Int("offset", defaultOffset))
+			return nil, fmt.Errorf("offset must be >= 0")
 		}
 	}
-	query.Offset = offset
 
 	if limitStr == "" {
-		limit = defaultLimit
-		logger.Debug("using default limit",
-			slog.Int("limit", defaultLimit))
+		limit = 20
 	} else {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			logger.Warn("failed to parse limit",
-				slog.String("limit", limitStr),
-				slog.String("error", err.Error()))
-			return nil, errors.New("invalid limit")
+			return nil, fmt.Errorf("invalid limit")
 		}
 		if limit <= 0 || limit > 100 {
-			limit = defaultLimit
-			logger.Debug("using default limit",
-				slog.Int("limit", defaultLimit))
+			return nil, fmt.Errorf("limit must be between 1 and 100")
 		}
 	}
-	query.Limit = limit
-	return query, nil
+
+	return &PaginationQuery{Offset: offset, Limit: limit}, nil
 }
+
 func (api *API) writeJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
 }
+
 func (api *API) writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
