@@ -46,9 +46,9 @@ func (r *PriceHistoryRepository) GetHistory(itemID uint) ([]model.PriceHistory, 
 	return prices, nil
 }
 
-func (r *PriceHistoryRepository) GetPriceByPeriod(itemID uint, limit int, interval, mode string) ([]model.PriceByInterval, error) {
+func (r *PriceHistoryRepository) GetPriceByPeriod(itemID uint, limit, offset int, interval, mode string) ([]model.PriceByInterval, error) {
 	var prices []model.PriceByInterval
-	
+
 	var query string
 
 	switch mode {
@@ -84,7 +84,8 @@ func (r *PriceHistoryRepository) GetPriceByPeriod(itemID uint, limit int, interv
 			WHERE item_id = $2
 			GROUP BY bucket
 			ORDER BY bucket DESC
-			LIMIT $3
+			OFFSET $3
+			LIMIT $4
 		) t
 		`
 
@@ -93,7 +94,7 @@ func (r *PriceHistoryRepository) GetPriceByPeriod(itemID uint, limit int, interv
 	}
 
 	err := r.DB.
-		Raw(query, interval, itemID, limit).
+		Raw(query, interval, itemID, offset, limit).
 		Scan(&prices).Error
 
 	if err != nil {

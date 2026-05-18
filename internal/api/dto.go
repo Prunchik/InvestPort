@@ -8,12 +8,40 @@ type itemResponse struct {
 	Name string `json:"name"`
 	Url  string `json:"url"`
 }
-
-type PricesResponse struct {
-	ItemId uint            `json:"item_id"`
-	Prices []priceResponse `json:"prices"`
+type itemResponseWithError struct {
+	Error string `json:"error"`
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Url   string `json:"url"`
 }
-type priceResponse struct {
+
+type SteamPricesResponse struct {
+	ItemId   uint                 `json:"item_id"`
+	Interval string               `json:"interval"`
+	Mode     string               `json:"mode"`
+	Limit    int                  `json:"limit"`
+	Offset   int                  `json:"offset"`
+	Prices   []steamPriceResponse `json:"prices"`
+}
+type steamPriceResponse struct {
 	Price float64 `json:"price"`
 	Time  string  `json:"time"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+type UrlRequest struct {
+	Url string `json:"url"`
+}
+
+type PaginationQuery struct {
+	Offset int `json:"offset"`
+	Limit  int `json:"limit"`
+}
+type HistoryQuery struct {
+	PaginationQuery
+	Interval string `json:"interval"`
+	Mode     string `json:"mode"`
 }

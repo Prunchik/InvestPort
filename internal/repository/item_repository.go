@@ -1,11 +1,7 @@
 package repository
 
 import (
-	"fmt"
 	"investPort/internal/model"
-	"net/url"
-	"strconv"
-	"strings"
 
 	"gorm.io/gorm"
 )
@@ -44,7 +40,16 @@ func (repo *ItemRepository) GetByURL(url string) (*model.Item, error) {
 	}
 	return &item, nil
 }
-func (repo *ItemRepository) GetAll() ([]model.Item, error) {
+func (repo *ItemRepository) GetItemsPaginated(offset, limit int) ([]model.Item, error) {
+	var items []model.Item
+
+	if err := repo.DB.Offset(offset).Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+func (repo *ItemRepository) GetItemsForProcessing() ([]model.Item, error) {
 	var items []model.Item
 
 	if err := repo.DB.Find(&items).Error; err != nil {
@@ -52,45 +57,4 @@ func (repo *ItemRepository) GetAll() ([]model.Item, error) {
 	}
 
 	return items, nil
-}
-func (repo *ItemRepository) ParseMarketHashName(urlString string) (string, int, error) {
-	parsed, err := url.Parse(urlString)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to parse URL: %w", err)
-	}
-
-	if parsed.Host != "steamcommunity.com" && !strings.HasSuffix(parsed.Host, ".steamcommunity.com") {
-		return "", 0, fmt.Errorf("unsupported host: %s", parsed.Host)
-	}
-
-	parts := strings.Split(parsed.Path, "/")
-	if len(parts) < 5 {
-		return "", 0, fmt.Errorf("invalid URL path: too short (%s)", parsed.Path)
-	}
-
-	if len(parts) < 4 || parts[1] != "market" || parts[2] != "listings" {
-		return "", 0, fmt.Errorf("invalid Steam market URL format: expected /market/listings/{app_id}/")
-	}
-
-	appIDStr := parts[3]
-	appID, err := strconv.Atoi(appIDStr)
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid appID '%s': %w", appIDStr, err)
-	}
-	if appID <= 0 {
-		return "", 0, fmt.Errorf("invalid appID: must be positive")
-	}
-	l, _ := url.QueryUnescape(parts[4])
-	fmt.Println(parts, "========", url.QueryEscape(parts[4]), l)
-
-	hash := parts[4]
-	marketHashName, err := url.QueryUnescape(hash)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to unescape market hash name: %w", err)
-	}
-	if marketHashName == "" {
-		return "", 0, fmt.Errorf("empty market hash name")
-	}
-
-	return marketHashName, appID, nil
 }

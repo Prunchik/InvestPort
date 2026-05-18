@@ -19,6 +19,11 @@ type PriceResponse struct {
 	LowestPrice string `json:"lowest_price"`
 	MedianPrice string `json:"median_price"`
 }
+type ParsedItem struct {
+	AppId    int
+	HashName string
+	Url      string
+}
 
 func NewClient() *Client {
 	return &Client{httpClient: &http.Client{Timeout: 10 * time.Second}}

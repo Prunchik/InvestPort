@@ -12,20 +12,16 @@ import (
 )
 
 type PriceHistoryService struct {
-	repo   *repository.PriceHistoryRepository
-	client *steam.Client
+	priceRepo *repository.PriceHistoryRepository
+	itemRepo  *repository.ItemRepository
+	client    *steam.Client
 }
 
-const (
-	GroupByHours = "hour"
-	GroupByDay   = "day"
-	GroupByWeek  = "week"
-)
-
-func NewPriceHistoryService(r *repository.PriceHistoryRepository, c *steam.Client) *PriceHistoryService {
+func NewPriceHistoryService(r *repository.PriceHistoryRepository, i *repository.ItemRepository, c *steam.Client) *PriceHistoryService {
 	return &PriceHistoryService{
-		repo:   r,
-		client: c,
+		priceRepo: r,
+		itemRepo:  i,
+		client:    c,
 	}
 }
 
@@ -41,10 +37,10 @@ func (s *PriceHistoryService) UpdatePriceForItem(item *model.Item) error {
 
 func (s *PriceHistoryService) ProcessPrice(itemID uint, newPrice float64) (*model.PriceHistory, error) {
 	const epsilon = 1e-6
-	latest, err := s.repo.GetLatestPrice(itemID)
+	latest, err := s.priceRepo.GetLatestPrice(itemID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		newRecord := model.NewPriceHistory(itemID, newPrice)
-		if err = s.repo.Create(newRecord); err != nil {
+		if err = s.priceRepo.Create(newRecord); err != nil {
 			return nil, err
 		}
 		return newRecord, nil
@@ -57,26 +53,13 @@ func (s *PriceHistoryService) ProcessPrice(itemID uint, newPrice float64) (*mode
 		return latest, nil
 	}
 	price := model.NewPriceHistory(itemID, newPrice)
-	if err = s.repo.Create(price); err != nil {
+	if err = s.priceRepo.Create(price); err != nil {
 		return nil, err
 	}
 	return price, nil
 }
-func (s *PriceHistoryService) GetHistoryByInterval(id uint, limit int, interval, mode string) ([]model.PriceByInterval, error) {
-	if limit <= 0 {
-		limit = 10
-	}
-	validInterval := "hour"
-	switch interval {
-	case GroupByHours, GroupByDay, GroupByWeek:
-		validInterval = interval
-	}
-	validMode := "last"
-	switch mode {
-	case "avg", "last":
-		validMode = mode
-	}
-	item, err := s.repo.GetPriceByPeriod(id, limit, validInterval, validMode)
+func (s *PriceHistoryService) GetHistoryWithPagination(id uint, limit, offset int, interval, mode string) ([]model.PriceByInterval, error) {
+	item, err := s.priceRepo.GetPriceByPeriod(id, limit, offset, interval, mode)
 	if err != nil {
 		return nil, err
 	}
