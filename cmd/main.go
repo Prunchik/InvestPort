@@ -22,7 +22,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const workerCount = 2
+
 func main() {
+
 	// Загрузка переменных окружения
 	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("Warning: .env file not found or failed to load")
@@ -91,10 +94,10 @@ func main() {
 	priceService := service.NewPriceHistoryService(priceRepo, itemRepo, client)
 
 	// Предварительная загрузка предметов (seed)
-	bootstrap.SeedItems(itemService, client)
+	go bootstrap.SeedItems(itemService, client)
 
 	// Запуск фонового воркера
-	priceWorker := worker.NewPriceWorker(itemService, priceService)
+	priceWorker := worker.NewPriceWorker(itemService, priceService, workerCount)
 
 	go func() {
 		defer func() {

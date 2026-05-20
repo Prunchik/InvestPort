@@ -3,9 +3,9 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"investPort/internal/service"
 	"investPort/internal/steam"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -214,14 +214,23 @@ func (api *API) addNewItemByURL() http.HandlerFunc {
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
 
-		err := decoder.Decode(&request)
-
-		if err != nil {
+		if err := decoder.Decode(&request); err != nil {
 			logger.Error("could not read JSON value",
 				slog.String("error", err.Error()))
 			api.writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
+
+		if decoder.More() {
+			api.writeError(w, http.StatusBadRequest, "only one JSON object allowed")
+			return
+		}
+
+		_, err := decoder.Token()
+		if err != io.EOF {
+			api.writeError(w, http.StatusBadRequest, "trailing data after JSON")
+		}
+
 		if request.Url == "" {
 			logger.Warn("url field is empty")
 			api.writeError(w, http.StatusBadRequest, "url field is empty")
@@ -279,16 +288,16 @@ func parseHistoryQuery(r *http.Request) (*HistoryQuery, error) {
 	mode := r.URL.Query().Get("mode")
 
 	const (
-		GroupByHours = "hour"
-		GroupByDay   = "day"
-		GroupByWeek  = "week"
-		ModeAVG      = "avg"
-		ModeLast     = "last"
+		GroupByHour = "hour"
+		GroupByDay  = "day"
+		GroupByWeek = "week"
+		ModeAVG     = "avg"
+		ModeLast    = "last"
 	)
 
-	validInterval := GroupByHours
+	validInterval := GroupByHour
 	switch interval {
-	case GroupByHours, GroupByDay, GroupByWeek:
+	case GroupByHour, GroupByDay, GroupByWeek:
 		validInterval = interval
 	}
 	query.Interval = validInterval
@@ -322,10 +331,10 @@ func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
 	} else {
 		offset, err = strconv.Atoi(offsetStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid offset")
+			return nil, errors.New("invalid offset")
 		}
 		if offset < 0 {
-			return nil, fmt.Errorf("offset must be >= 0")
+			return nil, errors.New("offset must be >= 0")
 		}
 	}
 
@@ -334,10 +343,10 @@ func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
 	} else {
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid limit")
+			return nil, errors.New("invalid limit")
 		}
 		if limit <= 0 || limit > 100 {
-			return nil, fmt.Errorf("limit must be between 1 and 100")
+			return nil, errors.New("limit must be between 1 and 100")
 		}
 	}
 
@@ -347,11 +356,19 @@ func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
 func (api *API) writeJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(v)
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(v)
 }
 
 func (api *API) writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+	if err := json.NewEncoder(w).Encode(ErrorResponse{
+		Error: message,
+	}); err != nil {
+		api.logger.Error(
+			"failed to encode error response", slog.String("error", err.Error()),
+		)
+	}
 }
