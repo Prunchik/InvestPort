@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -236,8 +237,19 @@ func (api *API) addNewItemByURL() http.HandlerFunc {
 			api.writeError(w, http.StatusBadRequest, "url field is empty")
 			return
 		}
+		parsedUrl, err := url.Parse(request.Url)
+		if err != nil {
+			logger.Warn("invalid url format")
+			api.writeError(w, http.StatusBadRequest, "invalid url format")
+			return
+		}
+		if parsedUrl.Scheme != "http" && parsedUrl.Scheme != "https" {
+			logger.Warn("url must use http or https")
+			api.writeError(w, http.StatusBadRequest, "url must use http or https")
+			return
+		}
 
-		parsedItem, err := api.client.ParseItemURL(request.Url)
+		parsedItem, err := api.client.ResolveSteamMarketItem(request.Url)
 		if err != nil {
 			logger.Warn("failed to parse item URL",
 				slog.String("url", request.Url),

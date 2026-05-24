@@ -25,9 +25,11 @@ type PriceResponse struct {
 	MedianPrice string `json:"median_price"`
 }
 type ParsedItem struct {
-	AppId    int
-	HashName string
-	Url      string
+	WearCategory *int
+	AppId        int
+	Name         string
+	HashName     string
+	Url          string
 }
 
 func NewClient() *Client {

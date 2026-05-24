@@ -44,7 +44,7 @@ func TestParseItemURL_ValidURLs(t *testing.T) {
 	}
 	for _, tt := range test {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := client.ParseItemURL(tt.url)
+			result, err := client.ResolveSteamMarketItem(tt.url)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -59,7 +59,7 @@ func TestParseItemURL_InvalidHost(t *testing.T) {
 	}
 	for _, url := range invalidURLs {
 		t.Run("invalid host: "+url, func(t *testing.T) {
-			_, err := client.ParseItemURL(url)
+			_, err := client.ResolveSteamMarketItem(url)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "unsupported host")
 		})
@@ -79,7 +79,7 @@ func TestParseItem_invalidPath(t *testing.T) {
 	}
 	for _, url := range invalidPath {
 		t.Run("invalid path: "+url, func(t *testing.T) {
-			_, err := client.ParseItemURL(url)
+			_, err := client.ResolveSteamMarketItem(url)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid Steam market URL format")
 		})
@@ -95,7 +95,7 @@ func TestParseItemURL_InvalidAppID(t *testing.T) {
 
 	for _, url := range invalidAppIDs {
 		t.Run("invalid appid: "+url, func(t *testing.T) {
-			_, err := client.ParseItemURL(url)
+			_, err := client.ResolveSteamMarketItem(url)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid appID")
 		})
@@ -111,7 +111,7 @@ func TestParseItemURL_EmptyOrInvalidHash(t *testing.T) {
 
 	for _, url := range emptyHashUrls {
 		t.Run("empty or invalid hash: "+url, func(t *testing.T) {
-			_, err := client.ParseItemURL(url)
+			_, err := client.ResolveSteamMarketItem(url)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "empty market hash name")
 		})

@@ -27,7 +27,7 @@ func (s *ItemService) GetOrCreateItem(parsedItem *steam.ParsedItem) (*model.Item
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		newItem := model.NewItem(parsedItem.HashName, parsedItem.HashName, parsedItem.Url, parsedItem.AppId) // TODO переделать модель item
+		newItem := model.NewItem(parsedItem.Name, parsedItem.HashName, parsedItem.Url, parsedItem.AppId)
 
 		if err = s.repo.Create(newItem); err != nil {
 			return nil, err
