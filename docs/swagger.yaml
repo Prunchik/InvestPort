@@ -1,0 +1,184 @@
+basePath: /
+definitions:
+  api.AllItemsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/api.itemResponse'
+        type: array
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  api.SteamPricesResponse:
+    properties:
+      interval:
+        type: string
+      item_id:
+        type: integer
+      limit:
+        type: integer
+      mode:
+        type: string
+      offset:
+        type: integer
+      prices:
+        items:
+          $ref: '#/definitions/api.steamPriceResponse'
+        type: array
+    type: object
+  api.UrlRequest:
+    properties:
+      url:
+        type: string
+    type: object
+  api.itemResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  api.itemResponseWithError:
+    properties:
+      error:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  api.steamPriceResponse:
+    properties:
+      price:
+        type: number
+      time:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Steam Market Price Tracker
+  title: InvestPort API
+  version: "1.0"
+paths:
+  /api/items:
+    get:
+      description: Get paginated list of all tracked Steam Market items
+      parameters:
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - default: 20
+        description: Items per page (1-100)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.AllItemsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List tracked items
+    post:
+      consumes:
+      - application/json
+      description: Add a new Steam Market item to track by its URL
+      parameters:
+      - description: Steam Market URL
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.UrlRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.itemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.itemResponseWithError'
+      summary: Add item by Steam URL
+  /api/items/{id}:
+    get:
+      description: Get a single tracked item by its database ID
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.itemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get item by ID
+  /api/items/{id}/history:
+    get:
+      description: Get bucketed price history for an item
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: hour
+        description: 'Bucket size: hour, day, week'
+        in: query
+        name: interval
+        type: string
+      - default: last
+        description: 'Aggregation: last, avg'
+        in: query
+        name: mode
+        type: string
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - default: 20
+        description: Items per page (1-100)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SteamPricesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get price history
+swagger: "2.0"

@@ -24,3 +24,12 @@ go.work.sum
 # env file
 .env
 docker/postgres-data
+
+# Log files
+*.log
+
+# Compiled binary
+main.exe
+
+# Temp files
+swagger-test.html

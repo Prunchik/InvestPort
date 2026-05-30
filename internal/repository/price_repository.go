@@ -70,7 +70,8 @@ func (r *PriceHistoryRepository) GetPriceByPeriod(itemID uint, limit, offset int
 			ORDER BY bucket, inspection_time DESC
 		) t2
 		ORDER BY bucket DESC
-		LIMIT $3
+		LIMIT $4
+		OFFSET $3
 		`
 
 	case "avg":

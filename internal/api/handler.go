@@ -23,20 +23,41 @@ type API struct {
 	logger       *slog.Logger
 }
 
-func NewAPI(router chi.Router, itemService *service.ItemService, priceService *service.PriceHistoryService, client *steam.Client, logger *slog.Logger) *API {
+func NewAPI(router chi.Router, itemService *service.ItemService, priceService *service.PriceHistoryService, client *steam.Client, logger *slog.Logger, staticFS http.Handler, getIndexHTML func() ([]byte, error)) *API {
 	api := &API{
 		ItemService:  itemService,
 		PriceService: priceService,
 		client:       client,
 		logger:       logger,
 	}
-	router.Get("/items", api.getItems())
-	router.Post("/items", api.addNewItemByURL())
-	router.Get("/items/{id}", api.getItemById())
-	router.Get("/items/{id}/history", api.getHistoryById())
+	router.Get("/api/items", api.getItems())
+	router.Post("/api/items", api.addNewItemByURL())
+	router.Get("/api/items/{id}", api.getItemById())
+	router.Get("/api/items/{id}/history", api.getHistoryById())
+
+	RegisterSwaggerRoutes(router)
+
+	router.Handle("/static/*", http.StripPrefix("/static/", staticFS))
+	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		indexHTML, err := getIndexHTML()
+		if err != nil {
+			http.Error(w, "frontend not built", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(indexHTML)
+	})
+
 	return api
 }
 
+// @Summary		List tracked items
+// @Description	Get paginated list of all tracked Steam Market items
+// @Param		offset	query	int	false	"Pagination offset"	default(0)
+// @Param		limit	query	int	false	"Items per page (1-100)"	default(20)
+// @Success		200	{object}	AllItemsResponse
+// @Failure		400	{object}	ErrorResponse
+// @Router		/api/items [get]
 func (api *API) getItems() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -81,6 +102,13 @@ func (api *API) getItems() http.HandlerFunc {
 	}
 }
 
+// @Summary		Get item by ID
+// @Description	Get a single tracked item by its database ID
+// @Param		id	path	int	true	"Item ID"
+// @Success		200	{object}	itemResponse
+// @Failure		400	{object}	ErrorResponse
+// @Failure		404	{object}	ErrorResponse
+// @Router		/api/items/{id} [get]
 func (api *API) getItemById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -131,6 +159,16 @@ func (api *API) getItemById() http.HandlerFunc {
 	}
 }
 
+// @Summary		Get price history
+// @Description	Get bucketed price history for an item
+// @Param		id		path	int		true	"Item ID"
+// @Param		interval	query	string	false	"Bucket size: hour, day, week"	default(hour)
+// @Param		mode		query	string	false	"Aggregation: last, avg"		default(last)
+// @Param		offset		query	int		false	"Pagination offset"			default(0)
+// @Param		limit		query	int		false	"Items per page (1-100)"		default(20)
+// @Success		200	{object}	SteamPricesResponse
+// @Failure		400	{object}	ErrorResponse
+// @Router		/api/items/{id}/history [get]
 func (api *API) getHistoryById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -199,6 +237,15 @@ func (api *API) getHistoryById() http.HandlerFunc {
 	}
 }
 
+// @Summary		Add item by Steam URL
+// @Description	Add a new Steam Market item to track by its URL
+// @Accept		json
+// @Produce		json
+// @Param		body	body	UrlRequest	true	"Steam Market URL"
+// @Success		201	{object}	itemResponse
+// @Failure		400	{object}	ErrorResponse
+// @Failure		409	{object}	itemResponseWithError
+// @Router		/api/items [post]
 func (api *API) addNewItemByURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request UrlRequest

@@ -9,6 +9,7 @@ import (
 	"investPort/internal/repository"
 	"investPort/internal/service"
 	"investPort/internal/steam"
+	"investPort/internal/web"
 	"investPort/internal/worker"
 	"log"
 	"log/slog"
@@ -110,13 +111,24 @@ func main() {
 	}()
 
 	// Инициализация API
-	api.NewAPI(router, itemService, priceService, client, logger)
+	api.NewAPI(router, itemService, priceService, client, logger, web.StaticFileServer(), web.IndexHTML)
 
 	// Настройка и запуск сервера
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    port,
 		Handler: router,
 	}
+
+	addr := "http://localhost" + port
+	logger.Info("Server starting", slog.String("url", addr), slog.String("swagger", addr+"/swagger/index.html"))
 	defer server.Close()
 	if err = server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("Server failed to start", slog.String("error", err.Error()))

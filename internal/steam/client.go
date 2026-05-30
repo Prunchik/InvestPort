@@ -26,7 +26,7 @@ type PriceResponse struct {
 }
 type ParsedItem struct {
 	WearCategory *int
-	AppId        int
+	AppID        int
 	Name         string
 	HashName     string
 	Url          string
