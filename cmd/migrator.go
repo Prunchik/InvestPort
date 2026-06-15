@@ -22,5 +22,4 @@ func migrate() {
 	if err != nil {
 		panic(err)
 	}
-
 }

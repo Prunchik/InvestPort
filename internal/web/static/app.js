@@ -4,7 +4,9 @@ const state = {
   offset: 0,
   hasMore: true,
   loading: false,
+  searchQuery: '',
 }
+let searchTimer
 
 // ─── API ───────────────────────────────────────────────
 async function apiGet(path) {
@@ -66,11 +68,14 @@ function renderItemList() {
       </form>
       <div id="add-msg"></div>
     </div>
+    <input id="search-input" type="text" class="form-input search-input"
+           placeholder="Search items..." value="${esc(state.searchQuery)}" />
     <div id="items-list"></div>
     <div id="list-bottom"></div>
   `
 
   document.getElementById('add-form').addEventListener('submit', handleAddItem)
+  document.getElementById('search-input').addEventListener('input', onSearchInput)
 
   state.offset = 0
   state.hasMore = true
@@ -83,7 +88,9 @@ async function fetchItems() {
   if (state.offset === 0) list.innerHTML = '<div class="spinner"></div>'
 
   try {
-    const data = await apiGet(`/api/items?offset=${state.offset}&limit=20`)
+    const params = new URLSearchParams({ offset: state.offset, limit: 20 })
+    if (state.searchQuery) params.set('q', state.searchQuery)
+    const data = await apiGet(`/api/items?${params}`)
     if (state.offset === 0) {
       state.items = data.items
     } else {
@@ -164,6 +171,16 @@ async function handleAddItem(e) {
     btn.disabled = false
     btn.textContent = 'Add Item'
   }
+}
+
+// ─── Search ────────────────────────────────────────────
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    state.searchQuery = document.getElementById('search-input').value.trim()
+    state.offset = 0
+    fetchItems()
+  }, 300)
 }
 
 // ─── Item Detail Page ──────────────────────────────────

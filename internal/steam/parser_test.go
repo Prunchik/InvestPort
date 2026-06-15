@@ -18,7 +18,7 @@ func TestParseItemURL_ValidURLs(t *testing.T) {
 			name: "basic market listing",
 			url:  "https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Redline%20%28Field-Tested%29",
 			expected: &ParsedItem{
-				Url:          "https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Redline%20%28Field-Tested%29",
+				URL:          "https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Redline%20%28Field-Tested%29",
 				AppID:        730,
 				WearCategory: nil,
 			},
@@ -27,7 +27,7 @@ func TestParseItemURL_ValidURLs(t *testing.T) {
 			name: "with subdomain",
 			url:  "https://xyz.steamcommunity.com/market/listings/570/Immortal%20Tiara",
 			expected: &ParsedItem{
-				Url:          "https://xyz.steamcommunity.com/market/listings/570/Immortal%20Tiara",
+				URL:          "https://xyz.steamcommunity.com/market/listings/570/Immortal%20Tiara",
 				AppID:        570,
 				WearCategory: nil,
 			},
@@ -36,7 +36,7 @@ func TestParseItemURL_ValidURLs(t *testing.T) {
 			name: "with wear category",
 			url:  "https://steamcommunity.com/market/listings/730/G180720B7093004?appid=730&category_730_Exterior=tag_WearCategory3",
 			expected: &ParsedItem{
-				Url:          "https://steamcommunity.com/market/listings/730/G180720B7093004?appid=730&category_730_Exterior=tag_WearCategory3",
+				URL:          "https://steamcommunity.com/market/listings/730/G180720B7093004?appid=730&category_730_Exterior=tag_WearCategory3",
 				AppID:        730,
 				WearCategory: intPtr(3),
 			},

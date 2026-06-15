@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"investPort/internal/cache"
+	"investPort/internal/repository"
 	"investPort/internal/service"
 	"investPort/internal/steam"
 	"io"
@@ -16,19 +19,29 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+const cacheTTLItem = 5 * time.Minute
+
 type API struct {
 	ItemService  *service.ItemService
 	PriceService *service.PriceHistoryService
 	client       *steam.Client
 	logger       *slog.Logger
+	cache        cache.Cache
 }
 
-func NewAPI(router chi.Router, itemService *service.ItemService, priceService *service.PriceHistoryService, client *steam.Client, logger *slog.Logger, staticFS http.Handler, getIndexHTML func() ([]byte, error)) *API {
+func NewAPI(router chi.Router,
+	itemService *service.ItemService,
+	priceService *service.PriceHistoryService,
+	client *steam.Client,
+	logger *slog.Logger,
+	cache cache.Cache,
+	staticFS http.Handler, getIndexHTML func() ([]byte, error)) *API {
 	api := &API{
 		ItemService:  itemService,
 		PriceService: priceService,
 		client:       client,
 		logger:       logger,
+		cache:        cache,
 	}
 	router.Get("/api/items", api.getItems())
 	router.Post("/api/items", api.addNewItemByURL())
@@ -72,7 +85,11 @@ func (api *API) getItems() http.HandlerFunc {
 			return
 		}
 
-		items, err := api.ItemService.GetItemsPaginated(query.Offset, query.Limit)
+		items, err := api.ItemService.ListItems(&repository.ItemFilter{
+			Query:  query.Query,
+			Offset: query.Offset,
+			Limit:  query.Limit,
+		})
 		if err != nil {
 			logger.Error("failed to get items from service",
 				slog.Int("offset", query.Offset),
@@ -89,7 +106,7 @@ func (api *API) getItems() http.HandlerFunc {
 			itemsStruct.Items[i] = itemResponse{
 				ID:   item.ID,
 				Name: item.Name,
-				Url:  item.URL,
+				URL:  item.URL,
 			}
 		}
 
@@ -112,8 +129,10 @@ func (api *API) getItems() http.HandlerFunc {
 func (api *API) getItemById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ctx := r.Context()
+
 		logger := api.logger.With(
-			slog.String("request_id", middleware.GetReqID(r.Context())),
+			slog.String("request_id", middleware.GetReqID(ctx)),
 		)
 
 		idStr := chi.URLParam(r, "id")
@@ -132,6 +151,15 @@ func (api *API) getItemById() http.HandlerFunc {
 			return
 		}
 
+		cacheKey := fmt.Sprintf("item:%d", id)
+
+		if cached, err := api.cache.GetItem(ctx, cacheKey); err == nil {
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(cached)
+			return
+		}
+
 		item, err := api.ItemService.GetByID(uint(id))
 		if err != nil {
 			if errors.Is(err, service.ErrItemNotFound) {
@@ -147,15 +175,23 @@ func (api *API) getItemById() http.HandlerFunc {
 			return
 		}
 
-		if err = api.writeJSON(w, http.StatusOK, itemResponse{
-			ID:   item.ID,
-			Name: item.Name,
-			Url:  item.URL,
-		}); err != nil {
-			logger.Error("failed to encode item response",
-				slog.Uint64("item_id", id),
+		resp, err := json.Marshal(itemResponse{ID: item.ID, Name: item.Name, URL: item.URL})
+		if err != nil {
+			slog.Error("error", err.Error())
+			api.writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed marshal item %v", err))
+			return
+		}
+
+		err = api.cache.SetItem(ctx, cacheKey, resp, cacheTTLItem)
+		if err != nil {
+			logger.Warn("failed to set item to cache",
+				slog.String("key", cacheKey),
 				slog.String("error", err.Error()))
 		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp)
 	}
 }
 
@@ -332,7 +368,7 @@ func (api *API) addNewItemByURL() http.HandlerFunc {
 		if err = api.writeJSON(w, http.StatusCreated, itemResponse{
 			ID:   item.ID,
 			Name: item.Name,
-			Url:  item.URL,
+			URL:  item.URL,
 		}); err != nil {
 			logger.Error("could not encode response",
 				slog.String("error", err.Error()))
@@ -384,6 +420,7 @@ func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
 
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
+	query := r.URL.Query().Get("q")
 
 	if offsetStr == "" {
 		offset = 0
@@ -404,12 +441,12 @@ func parsePaginationQuery(r *http.Request) (*PaginationQuery, error) {
 		if err != nil {
 			return nil, errors.New("invalid limit")
 		}
-		if limit <= 0 || limit > 100 {
+		if limit <= 0 || limit > 500 {
 			return nil, errors.New("limit must be between 1 and 100")
 		}
 	}
 
-	return &PaginationQuery{Offset: offset, Limit: limit}, nil
+	return &PaginationQuery{Offset: offset, Limit: limit, Query: query}, nil
 }
 
 func (api *API) writeJSON(w http.ResponseWriter, status int, v any) error {

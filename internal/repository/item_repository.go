@@ -7,6 +7,11 @@ import (
 )
 
 type ItemRepository struct{ DB *gorm.DB }
+type ItemFilter struct {
+	Query  string
+	Offset int
+	Limit  int
+}
 
 func NewItemRepo(db *gorm.DB) *ItemRepository { return &ItemRepository{db} }
 func (repo *ItemRepository) Create(item *model.Item) error {
@@ -40,16 +45,8 @@ func (repo *ItemRepository) GetByURL(url string) (*model.Item, error) {
 	}
 	return &item, nil
 }
-func (repo *ItemRepository) GetItemsPaginated(offset, limit int) ([]model.Item, error) {
-	var items []model.Item
 
-	if err := repo.DB.Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, err
-	}
-
-	return items, nil
-}
-func (repo *ItemRepository) GetItemsForProcessing() ([]model.Item, error) {
+func (repo *ItemRepository) ListAll() ([]model.Item, error) {
 	var items []model.Item
 
 	if err := repo.DB.Find(&items).Error; err != nil {
@@ -57,4 +54,23 @@ func (repo *ItemRepository) GetItemsForProcessing() ([]model.Item, error) {
 	}
 
 	return items, nil
+}
+
+func (repo *ItemRepository) List(filter *ItemFilter) ([]model.Item, error) {
+
+	query := repo.DB.Model(&model.Item{})
+
+	if filter.Query != "" {
+		query = query.Where("name ILIKE ?", "%"+filter.Query+"%")
+	}
+
+	var items []model.Item
+
+	err := query.
+		Offset(filter.Offset).
+		Limit(filter.Limit).
+		Find(&items).
+		Error
+
+	return items, err
 }

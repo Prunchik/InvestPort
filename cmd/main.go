@@ -5,12 +5,12 @@ import (
 	"errors"
 	"investPort/db"
 	"investPort/internal/api"
-	"investPort/internal/bootstrap"
+	redisCache "investPort/internal/cache/redis"
+	"investPort/internal/discovery"
 	"investPort/internal/repository"
 	"investPort/internal/service"
 	"investPort/internal/steam"
 	"investPort/internal/web"
-	"investPort/internal/worker"
 	"log"
 	"log/slog"
 	"net/http"
@@ -95,23 +95,44 @@ func main() {
 	priceService := service.NewPriceHistoryService(priceRepo, itemRepo, client)
 
 	// Предварительная загрузка предметов (seed)
-	go bootstrap.SeedItems(itemService, client)
+	//	go bootstrap.SeedItems(itemService, client)
 
-	// Запуск фонового воркера
-	priceWorker := worker.NewPriceWorker(itemService, priceService, workerCount)
+	// Запуск воркера предметов
+	// TODO Поддержку WearCategory, Периодический запуск воркера 24часа
+	source := discovery.NewSteamSource()
+	discoveryWorker := discovery.NewWorker(source, itemService, client, logger)
+	go discoveryWorker.Start(context.Background())
 
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Warn("Worker panicked", slog.Any("recover", r))
-				return
-			}
-		}()
-		priceWorker.Start(context.Background())
-	}()
+	// Запуск фонового воркера цен
+	// TODO сделать норм воркер и парсер
+	//priceWorker := worker.NewPriceWorker(itemService, priceService, workerCount)
+	//
+	//go func() {
+	//	defer func() {
+	//		if r := recover(); r != nil {
+	//			logger.Warn("Worker panicked", slog.Any("recover", r))
+	//			return
+	//		}
+	//	}()
+	//	priceWorker.Start(context.Background())
+	//}()
+
+	// кеширование redis
+
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	password := os.Getenv("REDIS_PASS")
+
+	cfg := redisCache.Config{
+		Addr:     redisAddr,
+		Password: password,
+	}
+	cache := redisCache.New(cfg)
 
 	// Инициализация API
-	api.NewAPI(router, itemService, priceService, client, logger, web.StaticFileServer(), web.IndexHTML)
+	api.NewAPI(router, itemService, priceService, client, logger, cache, web.StaticFileServer(), web.IndexHTML)
 
 	// Настройка и запуск сервера
 	port := os.Getenv("PORT")

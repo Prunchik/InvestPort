@@ -48,7 +48,7 @@ func (w *PriceWorker) Start(ctx context.Context) {
 		default:
 		}
 
-		items, err := w.itemService.GetItemsForProcessing()
+		items, err := w.itemService.ListAll()
 		if err != nil {
 			log.Printf("failed to get items: %v", err)
 

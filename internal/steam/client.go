@@ -29,7 +29,8 @@ type ParsedItem struct {
 	AppID        int
 	Name         string
 	HashName     string
-	Url          string
+	URL          string
+	ImageURL     string
 }
 
 func NewClient() *Client {
@@ -61,7 +62,7 @@ func (c *Client) GetPrice(ctx context.Context, marketHashName string, appID int)
 		return 0, err
 	}
 
-	itemName, err := url.QueryUnescape(marketHashName) //TODO надо сделать норм парсер
+	itemName, err := url.QueryUnescape(marketHashName)
 	if err != nil {
 		return 0, err
 	}

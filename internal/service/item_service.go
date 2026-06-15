@@ -20,14 +20,21 @@ func NewItemService(repo *repository.ItemRepository) *ItemService {
 }
 
 func (s *ItemService) GetOrCreateItem(parsedItem *steam.ParsedItem) (*model.Item, error) {
-	item, err := s.repo.GetByURL(parsedItem.Url)
+	item, err := s.repo.GetByURL(parsedItem.URL)
 
 	if err == nil {
 		return item, ErrItemAlreadyExist
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		newItem := model.NewItem(parsedItem.Name, parsedItem.HashName, parsedItem.Url, parsedItem.AppID)
+		newItem := model.NewItem(
+			parsedItem.Name,
+			parsedItem.HashName,
+			parsedItem.URL,
+			parsedItem.AppID,
+			parsedItem.WearCategory,
+			parsedItem.ImageURL,
+		)
 
 		if err = s.repo.Create(newItem); err != nil {
 			return nil, err
@@ -52,25 +59,26 @@ func (s *ItemService) GetByID(id uint) (*model.Item, error) {
 	return item, nil
 }
 
-func (s *ItemService) GetItemsPaginated(offset, limit int) ([]model.Item, error) {
-	if offset < 0 {
-		offset = 0
+func (s *ItemService) ListItems(filter *repository.ItemFilter) ([]model.Item, error) {
+	if filter.Offset < 0 {
+		filter.Offset = 0
 	}
 
-	if limit <= 0 {
-		limit = 10
+	if filter.Limit <= 0 {
+		filter.Limit = 20
 	}
 
-	items, err := s.repo.GetItemsPaginated(offset, limit)
+	items, err := s.repo.List(filter)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return items, nil
 }
-func (s *ItemService) GetItemsForProcessing() ([]model.Item, error) {
+func (s *ItemService) ListAll() ([]model.Item, error) {
 
-	items, err := s.repo.GetItemsForProcessing()
+	items, err := s.repo.ListAll()
 
 	if err != nil {
 		return nil, err

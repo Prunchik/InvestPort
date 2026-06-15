@@ -1,10 +1,14 @@
 services:
+  redis:
+    image: redis:latest
+    container_name: redis_invest
+    ports:
+      - "6379:6379"
   postgres:
     container_name: postgres_invest
     image: postgres:18.3
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    env_file:
+      - ../.env
     volumes:
     - ./postgres-data:/var/lib/postgresql/data/18/main
     ports:

@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,51 +20,11 @@ const (
 	stickerSlabPrefix = "Sticker Slab | "
 )
 
-var WearCategoryMap = map[int]string{ // TODO игнорируется factory new надо исправить
-	0: "Factory New",
-	1: "Minimal Wear",
-	2: "Field-Tested",
-	3: "Well-Worn",
-	4: "Battle-Scarred",
-}
-
 func (c *Client) ResolveSteamMarketItem(urlString string) (*ParsedItem, error) {
 
-	req, err := http.NewRequest(http.MethodGet, urlString, nil)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a request, err: %w", err)
-	}
-
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible)")
-
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch url, err: %w", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("steam api returned status %d", res.StatusCode)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	itemName, err := c.ResolveItemName(context.Background(), urlString) //TODO прокинуть ctx
 	if err != nil {
 		return nil, err
-	}
-
-	itemTitle := doc.Find(title).Text()
-
-	itemName := strings.TrimSuffix(itemTitle, steamSuffix)
-	itemName = strings.TrimPrefix(itemName, stickerSlabPrefix) // TODO не игнорировать sticker slab
-
-	itemName = strings.TrimSpace(itemName)
-
-	if itemName == "" {
-		return nil, fmt.Errorf("item name is not found")
-	}
-
-	if itemName == "Market Item" || itemName == "Steam Community Market" {
-		return nil, fmt.Errorf("failed to resolve item name from HTML title")
 	}
 
 	item, err := c.ParseSteamItemURL(urlString)
@@ -72,7 +33,7 @@ func (c *Client) ResolveSteamMarketItem(urlString string) (*ParsedItem, error) {
 	}
 
 	if item.WearCategory != nil {
-		if name, ok := WearCategoryMap[*item.WearCategory]; ok {
+		if name, ok := WearCategoryName[*item.WearCategory]; ok {
 			itemName = itemName + " (" + name + ")"
 		}
 	}
@@ -143,8 +104,50 @@ func (c *Client) ParseSteamItemURL(urlString string) (*ParsedItem, error) {
 	}
 	item := &ParsedItem{
 		WearCategory: wearCategory,
-		Url:          urlString,
+		URL:          urlString,
 		AppID:        appID,
 	}
 	return item, nil
+}
+
+// ResolveItemName TODO можно добавить таблицу candidate items добавлять туда и проверять на существование
+func (c *Client) ResolveItemName(ctx context.Context, urlString string) (string, error) {
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlString, nil)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create a request, err: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible)")
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch url, err: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("steam api returned status %d", res.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	itemTitle := doc.Find(title).Text()
+
+	itemName := strings.TrimSuffix(itemTitle, steamSuffix)
+	itemName = strings.TrimPrefix(itemName, stickerSlabPrefix) // TODO не игнорировать sticker slab
+
+	itemName = strings.TrimSpace(itemName)
+
+	if itemName == "" {
+		return "", fmt.Errorf("item name is not found")
+	}
+
+	if itemName == "Market Item" || itemName == "Steam Community Market" {
+		return "", fmt.Errorf("failed to resolve item name from HTML title: %s", itemName)
+	}
+	return itemName, nil
 }

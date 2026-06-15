@@ -6,7 +6,7 @@ type AllItemsResponse struct {
 type itemResponse struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
-	Url  string `json:"url"`
+	URL  string `json:"url"`
 }
 type itemResponseWithError struct {
 	Error string `json:"error"`
@@ -37,8 +37,9 @@ type UrlRequest struct {
 }
 
 type PaginationQuery struct {
-	Offset int `json:"offset"`
-	Limit  int `json:"limit"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
+	Query  string `json:"search"`
 }
 type HistoryQuery struct {
 	PaginationQuery

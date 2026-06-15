@@ -53,6 +53,7 @@ body {
   border-radius: 6px; color: #e1e4e8; font-size: 14px; outline: none; transition: border-color .15s;
 }
 .form-input:focus { border-color: #58a6ff; }
+.search-input { margin-bottom: 16px; }
 .form-row { display: flex; gap: 8px; align-items: flex-end; }
 
 .pagination {
